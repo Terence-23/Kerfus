@@ -1,4 +1,6 @@
 pub mod drive;
+pub mod utilities;
+pub mod lidar;
 
 use std::f32::consts::PI;
 
