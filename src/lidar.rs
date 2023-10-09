@@ -9,7 +9,7 @@ mod communication{
 
     
     #[derive(Debug)]
-    enum LidarError{
+    pub enum LidarError{
         BadLength,
         BadChecksum,
         WeakSignal,
@@ -39,7 +39,7 @@ mod communication{
         }
 
     }
-    struct LIDAR{
+    pub struct LIDAR{
         pub uart: uart::Uart,
     }
 
@@ -48,7 +48,7 @@ mod communication{
         const RESET_SUCCESS: [u8; 5] = [0x5a, 0x05, 0x10, 0x00, 0x6e];
         const SAVE_SUCCESS: [u8; 5] = [0x5a, 0x05, 0x11, 0x00, 0x6f];
 
-        fn new(uart: uart::Uart) -> Self { Self { uart } }
+        pub fn new(uart: uart::Uart) -> Self { Self { uart } }
         
         pub fn read_point(&mut self) -> Result<f32, LidarError>{
 
@@ -116,7 +116,41 @@ mod communication{
     
 }
 pub mod control{
+    use std::time::Duration;
 
+    use rppal::pwm;
+    pub struct Servo{
+        pwm: pwm::Pwm
+    }
+
+    impl Servo {
+
+        const PERIOD_MS: u64 = 20;
+        const PULSE_MIN_US: u64 = 1000;
+        const PULSE_MAX_US: u64 = 2000;
+
+        pub fn new(ch: pwm::Channel) -> pwm::Result<Self> { 
+            Ok(
+                Self { 
+                    pwm: pwm::Pwm::with_period(
+                        ch,
+                        Duration::from_millis(Servo::PERIOD_MS),
+                        Duration::from_micros(Servo::PULSE_MAX_US),
+                        pwm::Polarity::Normal,
+                        true
+                    )?
+                } 
+            )
+        }
+        pub fn angle(&mut self, a: f32) -> pwm::Result<()>{
+            let pulse: u64 = Servo::PULSE_MIN_US + (
+                (Servo::PULSE_MAX_US - Servo::PULSE_MIN_US) as f32 
+                * a * std::f32::consts::FRAC_1_PI) as u64;
+            self.pwm.set_period(Duration::from_micros(pulse))?;
+            Ok(())
+        }
+    }
+    
 }
 
 #[allow(dead_code)]
@@ -240,4 +274,55 @@ pub mod math{
         todo!()
     }
     
+}
+
+#[cfg(test)]
+mod test{
+    use std::time::Duration;
+
+    use super::communication::LIDAR;
+    use super::communication::LidarError;
+    use rppal::uart;
+
+    fn configure() -> uart::Result<LIDAR> {
+        let uart = uart::Uart::new(
+            115200,
+            uart::Parity::None,
+            8, 1
+        )?;
+        let mut lidar = LIDAR::new(uart);
+
+        lidar.configure()?; 
+        Ok(lidar)
+    }
+    
+
+    #[test]
+    fn lidar_config_test() -> uart::Result<()>{
+        let uart = uart::Uart::new(
+            115200,
+            uart::Parity::None,
+            8, 1
+        )?;
+        let mut lidar = LIDAR::new(uart);
+
+        lidar.configure()?;
+        Ok(())
+    }
+    #[test]
+    fn lidar_measure() -> Result<(), LidarError>{
+        let mut lidar = match configure()
+        {
+            Ok(lidar) => lidar,
+            Err(e) => return Err(LidarError::UartError(e)),
+        };
+
+        for _ in 0..30{
+            println!("measurement: {}", lidar.read_point()?);
+            std::thread::sleep(Duration::from_millis(500));
+        }
+
+        Ok(())
+    }
+
 }
