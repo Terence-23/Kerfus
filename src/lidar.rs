@@ -90,6 +90,7 @@ mod communication{
             self.uart.write(&factory_settings_packet)?;
             let mut response = [0 as u8; 5];
             self.uart.read(&mut response)?;
+            println!("{:x?}", response);
             if response != LIDAR::RESET_SUCCESS{
                 return Err(uart::Error::InvalidValue)
             }
@@ -98,6 +99,7 @@ mod communication{
             self.uart.write(&frame_rate_packet)?;
             let mut fr_response = [0 as u8; 5];
             self.uart.read(&mut fr_response)?;
+            println!("{:x?}", fr_response);
             if !fr_response[3] == 0 && !fr_response[4] == 0{
                 return Err(uart::Error::InvalidValue);
             }
@@ -105,6 +107,8 @@ mod communication{
             let save_settings_packet= [0x5a, 0x04, 0x11, 0x6f as u8];
             self.uart.write(&save_settings_packet)?;
             self.uart.read(&mut response)?;
+            println!("{:x?}", response);
+            
             if response != LIDAR::SAVE_SUCCESS{
                 return Err(uart::Error::InvalidValue)
             }
