@@ -1,12 +1,17 @@
 
 use crate::utilities::geometry;
 
+
+type Lidar = communication::LIDAR;
+type Servo = control::Servo;
+
+
 #[allow(dead_code)]
 mod communication{
     use std::{error::Error, fmt::Display, time::Duration};
 
     use rppal::uart;
-
+    
     
     #[derive(Debug)]
     pub enum LidarError{
@@ -45,10 +50,19 @@ mod communication{
 
     impl LIDAR {
         const DATA_LENGTH: usize = 9;
-        const RESET_SUCCESS: [u8; 5] = [0x5a, 0x05, 0x10, 0x00, 0x6e];
-        const SAVE_SUCCESS: [u8; 5] = [0x5a, 0x05, 0x11, 0x00, 0x6f];
+        const RESET_SUCCESS: [u8; 5] = [0x5a, 0x05, 0x10, 0x00, 0x6f];
+        const SAVE_SUCCESS: [u8; 5] = [0x5a, 0x05, 0x11, 0x00, 0x70];
 
         pub fn new(uart: uart::Uart) -> Self { Self { uart } }
+
+        fn calc_checksum(buf: &[u8], len: usize) -> u8{
+            let mut sum: u16 = 0;
+            for i in 0..len{
+                sum += buf[i] as u16;
+            }
+
+            return (sum & 255) as u8
+        }
         
         pub fn read_point(&mut self) -> Result<f32, LidarError>{
 
@@ -68,7 +82,8 @@ mod communication{
                 return Err(LidarError::BadStart);
             } 
             //check checksum
-            if buf[8] != (buf.map(|u| u as u16).iter().sum::<u16>() & 255) as u8{
+            if buf[8] != Self::calc_checksum(&buf, 8){
+                println!("Should be: {:x?}",  Self::calc_checksum(&buf, 8));
                 return Err(LidarError::BadChecksum);
             }
             let signal: u16 = buf[4] as u16 + (buf[5] as u16) << 8;
@@ -97,9 +112,9 @@ mod communication{
 
             let frame_rate_packet = [0x5a, 0x06, 0x03, 0, 0, ((0x5a + 0x06 + 0x03) & 255) as u8 ];
             self.uart.write(&frame_rate_packet)?;
-            let mut fr_response = [0 as u8; 5];
+            let mut fr_response = [0 as u8; 6];
             self.uart.read(&mut fr_response)?;
-            println!("{:x?}", fr_response);
+            println!("Framerate response: {:x?}", fr_response);
             if !fr_response[3] == 0 && !fr_response[4] == 0{
                 return Err(uart::Error::InvalidValue);
             }
@@ -107,7 +122,7 @@ mod communication{
             let save_settings_packet= [0x5a, 0x04, 0x11, 0x6f as u8];
             self.uart.write(&save_settings_packet)?;
             self.uart.read(&mut response)?;
-            println!("{:x?}", response);
+            println!("save: {:x?}", response);
             
             if response != LIDAR::SAVE_SUCCESS{
                 return Err(uart::Error::InvalidValue)
@@ -119,10 +134,14 @@ mod communication{
     }
     
 }
-pub mod control{
+mod control{
     use std::time::Duration;
 
     use rppal::pwm;
+
+    pub const FOV: f32 = std::f32::consts::PI * 0.02;
+
+
     pub struct Servo{
         pwm: pwm::Pwm
     }
@@ -130,8 +149,8 @@ pub mod control{
     impl Servo {
 
         const PERIOD_MS: u64 = 20;
-        const PULSE_MIN_US: u64 = 1000;
-        const PULSE_MAX_US: u64 = 2000;
+        const PULSE_MIN_US: u64 = 500;
+        const PULSE_MAX_US: u64 = 2500;
 
         pub fn new(ch: pwm::Channel) -> pwm::Result<Self> { 
             Ok(
@@ -147,10 +166,11 @@ pub mod control{
             )
         }
         pub fn angle(&mut self, a: f32) -> pwm::Result<()>{
-            let pulse: u64 = Servo::PULSE_MIN_US + (
-                (Servo::PULSE_MAX_US - Servo::PULSE_MIN_US) as f32 
-                * a * std::f32::consts::FRAC_1_PI) as u64;
-            self.pwm.set_period(Duration::from_micros(pulse))?;
+            let add_val = (Servo::PULSE_MAX_US - Servo::PULSE_MIN_US) as f32 
+            * a * std::f32::consts::FRAC_1_PI;
+            let pulse: u64 = Servo::PULSE_MIN_US + add_val as u64;
+            println!("{}", pulse);
+            self.pwm.set_pulse_width(Duration::from_micros(pulse))?;
             Ok(())
         }
     }
@@ -281,12 +301,13 @@ pub mod math{
 }
 
 #[cfg(test)]
-mod test{
+mod tests{
     use std::time::Duration;
 
     use super::communication::LIDAR;
     use super::communication::LidarError;
-    use rppal::uart;
+    use super::control::Servo;
+    use rppal::{uart, pwm};
 
     fn configure() -> uart::Result<LIDAR> {
         let uart = uart::Uart::new(
@@ -299,8 +320,6 @@ mod test{
         lidar.configure()?; 
         Ok(lidar)
     }
-    
-
     #[test]
     fn lidar_config_test() -> uart::Result<()>{
         let uart = uart::Uart::new(
@@ -326,6 +345,18 @@ mod test{
             std::thread::sleep(Duration::from_millis(500));
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn servo_sweep() -> pwm::Result<()>{
+        let mut servo = Servo::new(pwm::Channel::Pwm0)?;
+        servo.angle(0.0)?;
+        std::thread::sleep(Duration::from_millis(500));
+        servo.angle(std::f32::consts::PI)?;
+        std::thread::sleep(Duration::from_millis(500));
+        servo.angle(0.0)?;
+        std::thread::sleep(Duration::from_millis(500));
         Ok(())
     }
 
