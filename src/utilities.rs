@@ -2,6 +2,38 @@
 #[allow(dead_code)]
 pub mod geometry{
 
+
+    use std::f32::consts::PI;
+    #[derive(PartialOrd, Clone, Copy, Debug)]
+    pub enum Angle{
+        Degrees(f32),
+        Radians(f32)
+    }
+
+    impl PartialEq for Angle {
+        fn eq(&self, other: &Self) -> bool {
+            match (self, other) {
+                (Self::Degrees(l0), Self::Degrees(r0)) => l0 == r0,
+                (Self::Radians(l0), Self::Radians(r0)) => l0 == r0,
+                (l0, l1) => l0.radians() == l1.radians(),
+            }
+        }
+    }
+    impl Angle{
+        pub fn radians(&self) -> f32{
+            match self{
+                Angle::Degrees(n) => n * PI / 180.0,
+                Angle::Radians(n) => *n,
+            }
+        }
+        pub fn degrees(&self) -> f32{
+            match self {
+                Angle::Degrees(n) => *n,
+                Angle::Radians(n) => n/ PI * 180.0,
+            }
+        }
+    }
+
     use num::Float;
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Vec2<T>{

@@ -91,7 +91,8 @@ mod communication{
                 return Err(LidarError::WeakSignal);
             }
 
-            let distance = buf[2] as u16 + (buf[3] as u16) << 8;
+            let distance = buf[3] as u16 + (buf[2] as u16) << 8;
+            dbg!("dist: {}\n", distance);
 
             Ok(distance as f32)
         }
@@ -302,10 +303,16 @@ pub mod math{
 
 #[cfg(test)]
 mod tests{
+    use std::f32::consts::PI;
+    use std::fs::File;
+    use std::io::Write;
     use std::time::Duration;
+
+    use crate::utilities::geometry::Vec2;
 
     use super::communication::LIDAR;
     use super::communication::LidarError;
+    use super::control::FOV;
     use super::control::Servo;
     use rppal::{uart, pwm};
 
@@ -359,5 +366,45 @@ mod tests{
         std::thread::sleep(Duration::from_millis(500));
         Ok(())
     }
+    #[derive(Debug)]
+    enum Error{
+        LidarError(LidarError),
+        PwmError(pwm::Error)
+    }
+
+    impl From<LidarError> for Error {
+        fn from(value: LidarError) -> Self {
+            Self::LidarError(value)
+        }
+    }
+    impl From<pwm::Error> for Error{
+        fn from(value: pwm::Error) -> Self {
+            Self::PwmError(value)
+        }
+    }
+    impl From<uart::Error> for Error{
+        fn from(value: uart::Error) -> Self {
+            Self::LidarError(LidarError::UartError(value))
+        }
+    }
+
+    #[test]
+    fn lidar_sweep() -> Result<(), Error>{
+        let mut servo = Servo::new(pwm::Channel::Pwm0)?;
+        let mut lidar = configure()?;
+        let mut f = File::create("data_out.txt").expect("no file");
+        
+        let steps = (PI / FOV).round() as i32;
+        for i in 0..steps{
+            servo.angle(FOV * i as f32)?;
+            let dist = lidar.read_point()?;
+            let point = Vec2::<f32>::from_polar(dist, FOV * i as f32);
+            println!("point: {:?}", point);
+            f.write(format!("{}, {:?}\n", dist, point).as_bytes());
+            
+        }
+        Ok(())
+    }
+
 
 }
