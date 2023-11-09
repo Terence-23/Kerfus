@@ -19,7 +19,7 @@ fn main() {
         2.0
          * PI * 0.067
     )
-    .unwrap()
+    .unwrap();
     let right_motor = Stepper::from_pin_nums(
         23,
         24,
@@ -29,7 +29,7 @@ fn main() {
     .unwrap();
    
 
-    let mut drive = Drive::new(left_motor, rgiht_motor, WHEEL_DISTANCE);
+    let mut drive = Drive::new(left_motor, right_motor, WHEEL_DISTANCE);
 
     
     loop{

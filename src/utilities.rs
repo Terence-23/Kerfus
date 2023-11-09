@@ -4,18 +4,28 @@ pub mod geometry{
 
 
     use std::f32::consts::PI;
-    #[derive(PartialOrd, Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug)]
     pub enum Angle{
         Degrees(f32),
         Radians(f32)
     }
 
+    impl PartialOrd for Angle {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            match (self, other) {
+                (Self::Degrees(l), Self::Degrees(r)) => l.partial_cmp(r),
+                (Self::Radians(l), Self::Radians(r)) => l.partial_cmp(r),
+                (l, r) => l.radians().partial_cmp(&r.radians()),
+            }
+        }
+    }
+
     impl PartialEq for Angle {
         fn eq(&self, other: &Self) -> bool {
             match (self, other) {
-                (Self::Degrees(l0), Self::Degrees(r0)) => l0 == r0,
-                (Self::Radians(l0), Self::Radians(r0)) => l0 == r0,
-                (l0, l1) => l0.radians() == l1.radians(),
+                (Self::Degrees(l), Self::Degrees(r)) => l == r,
+                (Self::Radians(l), Self::Radians(r)) => l == r,
+                (l, r) => l.radians() == r.radians(),
             }
         }
     }
