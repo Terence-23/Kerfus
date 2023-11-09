@@ -11,6 +11,7 @@ pub mod drive{
     #[async_trait::async_trait]
     pub trait Motor {
         async fn rotate(&mut self, deg: Angle, dir: Direction);
+        fn distance_to_angle(&self, dist: f32) -> Angle;
     }
 
 
@@ -32,21 +33,24 @@ pub mod drive{
     pub struct Stepper{
         pub dir_pin: OutputPin,
         pub step_pin: OutputPin,
-        pub steps: usize 
+        pub steps: usize,
+        pub circumference: f32, 
     }
     impl Stepper{
-        pub fn new(dir_pin: OutputPin, step_pin: OutputPin, steps:usize) -> Self{
+        pub fn new(dir_pin: OutputPin, step_pin: OutputPin, steps:usize, circumference: f32) -> Self{
             Self{
                 dir_pin,
                 step_pin,
-                steps
+                steps,
+                circumference
             }
         }
-        pub fn from_pin_nums(dir_pin: u8, step_pin: u8, steps:usize) -> Result<Self, Error>{
+        pub fn from_pin_nums(dir_pin: u8, step_pin: u8, steps:usize, circumference: f32) -> Result<Self, Error>{
             Ok(Self{
                 dir_pin: Gpio::new()?.get(dir_pin)?.into_output(),
                 step_pin: Gpio::new()?.get(step_pin)?.into_output(),
-                steps
+                steps,
+                circumference
             })
         }
         pub fn forward(&mut self, steps: Option<usize>){
@@ -72,7 +76,7 @@ pub mod drive{
     #[async_trait::async_trait]
     impl Motor for Stepper{
         async fn rotate(&mut self, deg: Angle, dir: Direction){
-            let steps: usize = (self.steps as f32 * deg.radians() / (2.0 * PI)) as usize;
+            let steps: usize = (self.steps as f32 * deg.radians().abs() / (2.0 * PI)) as usize;
             match dir {
                 Direction::Forward => {
                     for _ in 0..steps{
@@ -86,6 +90,9 @@ pub mod drive{
                 },
             }
         }
+        fn distance_to_angle(&self, dist: f32) -> Angle{
+            Angle::Radians(dist * 2.0 * PI / self.circumference)
+        }
     }
 
 
@@ -98,7 +105,7 @@ pub mod drive{
         r2: bool,
         distance: f32,
     }
-    use std::time::Instant;
+    // use std::time::Instant;
     
     impl<T1, T2> Drive<T1, T2> 
     where T1: Motor, T2: Motor{
@@ -114,16 +121,39 @@ pub mod drive{
         }
 
         pub async fn go(& mut self, dir: Direction, distance: f32){
-            
+             
+            let left_angle = self.left_motor.distance_to_angle(distance);
+            let lf = self.left_motor.rotate(left_angle, dir.to_owned());
+            let right_angle = self.right_motor.distance_to_angle(distance);
+            let rf = self.right_motor.rotate(right_angle, dir.to_owned());
+            for f in vec![lf, rf]{
+                f.await;
+            }
 
         }
     
         pub async fn turn(& mut self, angle: Angle){
-            let distance = angle.radians().abs() * WHEEL_DISTANCE / 2.0;
-            
+            let distance = angle.radians().abs() * self.distance / 2.0;
+            let left = angle.radians() < 0.0;
 
+            let l_dir = match left{
+                true => Direction::Backward,
+                false => Direction::Forward
+            }; 
+            let left_angle = self.left_motor.distance_to_angle(distance);
+            let lf = self.left_motor.rotate(left_angle, l_dir);
 
-            // println!("skręcił: {}, {}", r_steps, l_steps);
+            let r_dir = match left{
+                true => Direction::Forward,
+                false => Direction::Backward
+            };
+            let right_angle = self.right_motor.distance_to_angle(distance);            
+            let rf = self.right_motor.rotate(right_angle, r_dir);
+
+            for f in vec![lf, rf]{
+                f.await;
+            }
+            println!("skręcił: {:?}, {:?}", right_angle, left_angle);
         }
     }
 

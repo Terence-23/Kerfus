@@ -102,7 +102,7 @@ mod communication{
             self.uart.set_baud_rate(115200)?;
             self.uart.set_read_mode(5, Duration::from_secs(0))?;
 
-            let factory_settings_packet= [0x5a, 0x04, 0x10, 0x6e as u8];
+            let factory_settings_packet= [0x5a, 0x04, 0x10, 0x6f as u8];
             self.uart.write(&factory_settings_packet)?;
             let mut response = [0 as u8; 5];
             self.uart.read(&mut response)?;
@@ -110,7 +110,7 @@ mod communication{
             if response != LIDAR::RESET_SUCCESS{
                 return Err(uart::Error::InvalidValue)
             }
-
+            
             let frame_rate_packet = [0x5a, 0x06, 0x03, 0, 0, ((0x5a + 0x06 + 0x03) & 255) as u8 ];
             self.uart.write(&frame_rate_packet)?;
             let mut fr_response = [0 as u8; 6];
@@ -120,11 +120,11 @@ mod communication{
                 return Err(uart::Error::InvalidValue);
             }
 
-            let save_settings_packet= [0x5a, 0x04, 0x11, 0x6f as u8];
+            let save_settings_packet= [0x5a, 0x04, 0x11, 0x70 as u8];
             self.uart.write(&save_settings_packet)?;
             self.uart.read(&mut response)?;
             println!("save: {:x?}", response);
-            
+
             if response != LIDAR::SAVE_SUCCESS{
                 return Err(uart::Error::InvalidValue)
             }
@@ -147,12 +147,14 @@ mod control{
         pwm: pwm::Pwm
     }
 
+    #[allow(dead_code)]
     impl Servo {
 
         const PERIOD_MS: u64 = 20;
         const PULSE_MIN_US: u64 = 500;
         const PULSE_MAX_US: u64 = 2500;
 
+        
         pub fn new(ch: pwm::Channel) -> pwm::Result<Self> { 
             Ok(
                 Self { 

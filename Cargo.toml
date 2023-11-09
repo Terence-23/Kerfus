@@ -9,3 +9,4 @@ edition = "2021"
 async-trait = "0.1.74"
 num = "0.4.1"
 rppal = "0.14.1"
+tokio = { version = "1.33.0", features = ["full"] }
