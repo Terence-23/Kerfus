@@ -1,6 +1,7 @@
 pub mod drive;
 pub mod utilities;
 pub mod lidar;
+pub mod wall_detection;
 
 use std::f32::consts::PI;
 
@@ -31,10 +32,14 @@ fn main() {
 
     let mut drive = Drive::new(left_motor, right_motor, WHEEL_DISTANCE);
 
-    
-    loop{
-        drive.go(Direction::Forward, 0.1);
-        drive.turn(Angle::Radians(PI/2.0));
+    let runtime = tokio::runtime::Builder::new_multi_thread().build().unwrap();
+    runtime.block_on(async{
+        loop{
+            drive.go(Direction::Forward, 0.1).await;
+            drive.turn(Angle::Radians(PI/2.0)).await;
+        }
     }
+    );
+    
     
 }

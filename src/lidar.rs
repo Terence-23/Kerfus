@@ -1,8 +1,9 @@
 
 use crate::utilities::geometry;
 
-
+#[allow(dead_code)]
 type Lidar = communication::LIDAR;
+#[allow(dead_code)]
 type Servo = control::Servo;
 
 
@@ -402,7 +403,7 @@ mod tests{
             let dist = lidar.read_point()?;
             let point = Vec2::<f32>::from_polar(dist, FOV * i as f32);
             println!("point: {:?}", point);
-            f.write(format!("{}, {:?}\n", dist, point).as_bytes());
+            f.write(format!("{}, {:?}\n", dist, point).as_bytes()).unwrap();
             
         }
         Ok(())

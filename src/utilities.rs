@@ -1,8 +1,26 @@
 
+pub fn minf(a: f32, b: f32) -> f32{
+    if a > b{
+        b
+    }
+    else{
+        a
+    } 
+    
+}
+pub fn maxf(a: f32, b: f32) -> f32{
+    if a < b{
+        b
+    }
+    else{
+        a
+    } 
+}
+
 #[allow(dead_code)]
 pub mod geometry{
 
-
+    use super::{minf, maxf};
     use std::f32::consts::PI;
     #[derive(Clone, Copy, Debug)]
     pub enum Angle{
@@ -74,7 +92,6 @@ pub mod geometry{
             (val.x, val.y)
         }
     }
-
     impl<T> Vec2<T> where T: Float {
         pub fn length(&self) -> T{
             (self.x * self.x + self.y * self.y).sqrt()
@@ -156,4 +173,22 @@ pub mod geometry{
             }
         }
     }
+
+    #[derive(Clone, Copy)]
+    pub  struct Interval{
+        start: f32,
+        end: f32,
+    }
+    impl Interval{
+        pub fn new(start: f32, end: f32) -> Self{
+            Self { 
+                start: minf(start, end), 
+                end: maxf(start, end) 
+            }
+        }
+        pub fn span(&self) -> f32{
+            return self.end - self.start
+        }
+    }
+
 }
