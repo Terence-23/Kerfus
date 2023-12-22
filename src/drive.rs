@@ -22,14 +22,21 @@ pub mod drive{
     impl Motor for Brushless{
         async fn rotate(&mut self, deg: Angle, dir: Direction){
             //let steps: usize = (self.steps as f32 * deg.radians().abs() / (2.0 * PI)) as usize;
+            let encoderRead = self.encoder.angle().unwrap();
+            
+            match dir{
+                Direction::Forward => todo!(),
+                Direction::Backward => todo!(),
+            }
         }
+
         fn distance_to_angle(&self, dist: f32) -> Angle{
             Angle::Radians(dist * 2.0 * PI / self.circumference)
         }
     }
     pub struct Brushless{
         pwm: pwm::Pwm,
-        pub data_pin: InputPin,
+        pub encoder: as5600::As5600<I2cdev>,
         pub circumference: f32,
     }
     impl Brushless {
@@ -50,9 +57,7 @@ pub mod drive{
                         true
                     )?,
                     circumference: 1.0,
-                    data_pin: todo!(),
-                    
-                    
+                    encoder:  As5600::new(I2cdev::new("/dev/i2c-1").unwrap())
                 } 
             )
         }
