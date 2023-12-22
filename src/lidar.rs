@@ -2,9 +2,9 @@
 use crate::utilities::geometry;
 
 #[allow(dead_code)]
-type Lidar = communication::LIDAR;
+pub type Lidar = communication::LIDAR;
 #[allow(dead_code)]
-type Servo = control::Servo;
+pub type Servo = control::Servo;
 
 
 #[allow(dead_code)]
@@ -136,11 +136,11 @@ mod communication{
     }
     
 }
-mod control{
+pub mod control{
     use std::time::Duration;
 
     use rppal::pwm;
-
+    #[allow(unused)]
     pub const FOV: f32 = std::f32::consts::PI * 0.02;
 
 
@@ -306,7 +306,9 @@ pub mod math{
 
 #[cfg(test)]
 mod tests{
+    
     use std::f32::consts::PI;
+    use std::fmt::Display;
     use std::fs::File;
     use std::io::Write;
     use std::time::Duration;
@@ -374,6 +376,19 @@ mod tests{
         LidarError(LidarError),
         PwmError(pwm::Error)
     }
+    impl Display for Error{
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self{
+                Error::LidarError(e) => f.write_str(&format!("LidarError: {e}")),
+                Error::PwmError(e) => f.write_str(&format!("PwmError: {e}")),
+            }
+        }
+    }
+    impl std::error::Error for Error{
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            None
+        }
+    }
 
     impl From<LidarError> for Error {
         fn from(value: LidarError) -> Self {
@@ -397,16 +412,47 @@ mod tests{
         let mut lidar = configure()?;
         let mut f = File::create("data_out.txt").expect("no file");
         
-        let steps = (PI / FOV).round() as i32;
+        let steps = (PI / FOV * 10.0).round() as i32;
+        let mut points = vec![];
+        
         for i in 0..steps{
-            servo.angle(FOV * i as f32)?;
+            servo.angle(FOV / 10.0 * i as f32)?;
             let dist = lidar.read_point()?;
             let point = Vec2::<f32>::from_polar(dist, FOV * i as f32);
+            points.push(point);
             println!("point: {:?}", point);
             f.write(format!("{}, {:?}\n", dist, point).as_bytes()).unwrap();
             
         }
+
         Ok(())
+    }
+    use crate::wall_detection::wall_detection::{FloorGrid, DynGrid, Cell};
+    #[test]
+    fn wall_detection_test() -> Result<(), impl std::error::Error>{
+        let mut servo = Servo::new(pwm::Channel::Pwm0)?;
+        let mut lidar = configure()?;
+        let mut f = File::create("data_out.txt").expect("no file");
+        
+        let steps = (PI / FOV * 10.0).round() as i32;
+        let mut points = vec![];
+        
+        for i in 0..steps{
+            servo.angle(FOV / 10.0 * i as f32)?;
+            let dist = lidar.read_point()?;
+            let point = Vec2::<f32>::from_polar(dist, FOV * i as f32);
+            points.push(point);
+            println!("point: {:?}", point);
+            f.write(format!("{}, {:?}\n", dist, point).as_bytes()).unwrap();
+            
+        }
+        
+        let grid = FloorGrid::new(&points, 10);
+
+        grid.into_image().save("grid_image.png").unwrap();
+
+
+        Ok::<(), Error>(())
     }
 
 

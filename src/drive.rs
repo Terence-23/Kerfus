@@ -1,10 +1,14 @@
 
 #[allow(dead_code)]
 pub mod drive{
+    use std::time::Duration;
     use std::{thread, time, f32::consts::PI, ops::Neg};
     use crate::utilities::geometry::Angle;
+    use as5600::As5600;
+    use linux_embedded_hal::I2cdev;
+    use rppal::pwm;
 
-    use rppal::gpio::{Gpio,OutputPin, Error};
+    use rppal::gpio::{Gpio,OutputPin, Error, InputPin};
     pub const STEP_TIME: u64 = 500;
     pub const WHEEL_DISTANCE: f32 = 0.1885;
 
@@ -14,6 +18,53 @@ pub mod drive{
         fn distance_to_angle(&self, dist: f32) -> Angle;
     }
 
+    #[async_trait::async_trait]
+    impl Motor for Brushless{
+        async fn rotate(&mut self, deg: Angle, dir: Direction){
+            //let steps: usize = (self.steps as f32 * deg.radians().abs() / (2.0 * PI)) as usize;
+        }
+        fn distance_to_angle(&self, dist: f32) -> Angle{
+            Angle::Radians(dist * 2.0 * PI / self.circumference)
+        }
+    }
+    pub struct Brushless{
+        pwm: pwm::Pwm,
+        pub data_pin: InputPin,
+        pub circumference: f32,
+    }
+    impl Brushless {
+
+        const PERIOD_MS: u64 = 20;
+        const PULSE_MIN_US: u64 = 500;
+        const PULSE_MAX_US: u64 = 2500;//to change
+
+        
+        pub fn new(ch: pwm::Channel) -> pwm::Result<Self> { 
+            Ok(
+                Self { 
+                    pwm: pwm::Pwm::with_period(
+                        ch,
+                        Duration::from_millis(Brushless::PERIOD_MS),
+                        Duration::from_micros(Brushless::PULSE_MAX_US),
+                        pwm::Polarity::Normal,
+                        true
+                    )?,
+                    circumference: 1.0,
+                    data_pin: todo!(),
+                    
+                    
+                } 
+            )
+        }
+        pub fn speed(&mut self, a: f32) -> pwm::Result<()>{
+            let add_val = (Brushless::PULSE_MAX_US - Brushless::PULSE_MIN_US) as f32 
+            * a * std::f32::consts::FRAC_1_PI;
+            let pulse: u64 = Brushless::PULSE_MIN_US + add_val as u64;
+            println!("{}", pulse);
+            self.pwm.set_pulse_width(Duration::from_micros(pulse))?;
+            Ok(())
+        }
+    }
 
     #[derive(Clone, Debug)]
     pub enum Direction{

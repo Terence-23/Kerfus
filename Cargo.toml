@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+as5600 = "0.6.0"
 async-trait = "0.1.74"
 image = "0.24.7"
+linux-embedded-hal = "0.3.2"
 num = "0.4.1"
 rppal = "0.14.1"
 tokio = { version = "1.33.0", features = ["full"] }
