@@ -33,13 +33,14 @@ pub mod drive {
             };
 
             // Set the initial PWM speed
-            let mut speed = 0.5; // You may adjust the initial speed based on your application
+            let mut speed = 1.0; // You may adjust the initial speed based on your application
 
             // Set the PWM frequency and period
             self.pwm
                 .set_period(Duration::from_millis(Brushless::PERIOD_MS))
                 .unwrap();
 
+            
             // Adjust the PWM duty cycle based on the direction and rotation angle
             while (initial_angle as f32 - target_angle).abs() > Angle::Degrees(1.0).radians() {
                 // Calculate the current angle
@@ -49,7 +50,8 @@ pub mod drive {
                 let angle_difference = target_angle - current_angle as f32;
 
                 // Calculate the speed based on the angle difference
-                speed = (angle_difference * direction_multiplier).clamp(-1.0, 1.0);
+                
+                //speed = (angle_difference * direction_multiplier).clamp(0.0, 1.0);
 
                 // Set the PWM duty cycle based on the calculated speed
                 self.speed(speed).unwrap();
@@ -73,8 +75,8 @@ pub mod drive {
     }
     impl Brushless {
         const PERIOD_MS: u64 = 20;
-        const PULSE_MIN_US: u64 = 500;
-        const PULSE_MAX_US: u64 = 2500; //to change
+        const PULSE_MIN_US: u64 = 1000;
+        const PULSE_MAX_US: u64 = 2000;
 
         pub fn new(ch: pwm::Channel) -> pwm::Result<Self> {
             Ok(Self {
@@ -91,8 +93,7 @@ pub mod drive {
         }
         pub fn speed(&mut self, a: f32) -> pwm::Result<()> {
             let add_val = (Brushless::PULSE_MAX_US - Brushless::PULSE_MIN_US) as f32
-                * a
-                * std::f32::consts::FRAC_1_PI;
+                * a;
             let pulse: u64 = Brushless::PULSE_MIN_US + add_val as u64;
             println!("{}", pulse);
             self.pwm.set_pulse_width(Duration::from_micros(pulse))?;

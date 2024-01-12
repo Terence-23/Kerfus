@@ -86,16 +86,27 @@ pub mod wall_detection {
 
             let cell_span_x = (max_x - min_x + 1.0) / cell_count as f32;
             let cell_span_y = (max_y - min_y + 1.0) / cell_count as f32;
+            let span = maxf(cell_span_x, cell_span_y);
 
-            let grid = DynGrid::new(
-                cell_count,
-                cell_count,
-                cell_span_x,
-                cell_span_y,
-                min_x,
-                min_y,
-            );
+            let grid = DynGrid::new(cell_count, cell_count, span, span, min_x, min_y);
 
+            Self::new_with_grid(grid, points)
+        }
+        pub fn new_with_cell_size(points: &[Vec2<f32>], cell_count: usize, cell_size: f32) -> Self {
+            let mut min_x = points[0].x;
+            let mut min_y = points[0].y;
+            let mut max_x = points[0].x;
+            let mut max_y = points[0].y;
+
+            for p in &points[1..] {
+                min_x = minf(p.x, min_x);
+                min_y = minf(p.y, min_y);
+
+                max_x = maxf(p.x, max_x);
+                max_y = maxf(p.y, max_y);
+            }
+
+            let grid = DynGrid::new(cell_count, cell_count, cell_size, cell_size, min_x, min_y);
             Self::new_with_grid(grid, points)
         }
         pub fn new_with_grid(mut grid: DynGrid, points: &[Vec2<f32>]) -> Self {
@@ -120,11 +131,13 @@ pub mod wall_detection {
             let mut img = ImageBuffer::new(self.grid.x_size as u32, self.grid.y_size as u32);
 
             for (x, y, pix) in img.enumerate_pixels_mut() {
-                let cell = self.grid.data[y as usize][x as usize];
+                let cell = self.grid.data[x as usize][y as usize];
                 *pix = if cell.point_count > self.threshold {
-                    Rgb::<u8> { 0: [0, 0, 0] }
+                    Rgb::<u8> { 0: [0, 255, 0] }
                 } else {
-                    Rgb::<u8> { 0: [255, 255, 255] }
+                    Rgb::<u8> {
+                        0: [(255f32 * cell.point_count as f32 / self.threshold as f32) as u8; 3],
+                    }
                 }
             }
 

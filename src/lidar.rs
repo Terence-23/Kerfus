@@ -7,9 +7,19 @@ pub type Servo = control::Servo;
 
 #[allow(dead_code)]
 mod communication {
-    use std::{error::Error, fmt::Display, time::Duration};
+    use crate::utilities::geometry::Vec2;
+    use std::{
+        error::Error,
+        f32::consts::PI,
+        fmt::Display,
+        iter,
+        sync::{Arc, RwLock},
+        time::Duration,
+    };
 
     use rppal::uart;
+
+    use super::{Lidar, Servo};
 
     #[derive(Debug)]
     pub enum LidarError {
@@ -144,6 +154,53 @@ mod communication {
 
             self.uart.set_read_mode(9, Duration::from_secs(0))?;
             Ok(())
+        }
+    }
+
+    struct LIDARScanner<const RES: usize> {
+        lidar: Lidar,
+        servo: Servo,
+        data: [Arc<RwLock<Vec2<f32>>>; RES],
+        sc: Arc<RwLock<usize>>,
+    }
+    impl<const RES: usize> LIDARScanner<RES> {
+        fn new(lidar: LIDAR, servo: Servo) -> Self {
+            Self {
+                lidar,
+                servo,
+                data: std::array::from_fn::<_, RES, _>(|_| {
+                    Arc::new(RwLock::new(Vec2::<f32>::from((0f32, 0f32))))
+                }),
+                sc: Arc::new(RwLock::new(0)),
+            }
+        }
+        async fn scan(mut self) {
+            let step = PI / RES as f32;
+            loop {
+                for i in 0..RES {
+                    let angle = step * i as f32;
+                    match self.servo.angle(angle) {
+                        Ok(_) => (),
+                        Err(_) => continue,
+                    };
+                    let dist = match self.lidar.read_point() {
+                        Ok(v) => v,
+                        Err(_) => continue,
+                    };
+                    let point = Vec2::<f32>::from_polar(dist, angle);
+                    let mut write = match self.data[i].write() {
+                        Ok(v) => v,
+                        Err(_) => continue,
+                    };
+                    *write = point;
+                }
+                let mut c = match self.sc.write() {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                *c += 1;
+                drop(c);
+            }
         }
     }
 }
